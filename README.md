@@ -5,6 +5,8 @@ with a formula dropdown and two sliders (`a`, `b`).
 
 Might make one on android if this i found this interesting
 
+Partnered with claude for faster workflow
+
 treat this as untested since this is experimental.
 Expect to fix small things on first build.
 
