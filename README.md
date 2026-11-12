@@ -1,9 +1,11 @@
-# Bytebeat Viewer (Rust + Flutter example)
+# Bytebeat Viewer (Rust + Flutter)
 
 Rust generates bytebeat samples; Flutter draws them as a scrolling waveform
 with a formula dropdown and two sliders (`a`, `b`).
 
-I couldn't compile or run this where I wrote it, so treat it as untested.
+Might make one on android if this i found this interesting
+
+treat this as untested since this is experimental.
 Expect to fix small things on first build.
 
 ## Setup
