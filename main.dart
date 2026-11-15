@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:bytebeat_app/src/rust/api/bytebeat.dart';
 import 'package:bytebeat_app/src/rust/frb_generated.dart';
 
+
 Future<void> main() async {
   await RustLib.init();
   runApp(const BytebeatApp());
@@ -39,13 +40,18 @@ class ViewerPage extends StatefulWidget {
 class _ViewerPageState extends State<ViewerPage> {
   static const int windowSize = 1024; // samples drawn per frame
   static const int scrollStep = 128; // samples to advance per tick
+  static const List<int> sampleRates = [8000, 11025, 22050, 32000, 44100];
 
-  late final List<String> _names = formulaNames();
-  int _formula = 0;
+  late final List<Preset> _presets = presets();
+  final TextEditingController _code = TextEditingController();
+
+  String? _error; // compile error shown under the code box, if any
   double _a = 8;
   double _b = 12;
+  int _sampleRate = 8000;
+  bool _floatMode = false;
   int _start = 0;
-  bool _playing = true;
+  bool _playing = true; // is the picture scrolling (when sound is off)?
   bool _audioOn = false;
   Timer? _timer;
   Uint8List _samples = Uint8List(0);
@@ -53,7 +59,9 @@ class _ViewerPageState extends State<ViewerPage> {
   @override
   void initState() {
     super.initState();
-    _render();
+    setParams(a: _a.round(), b: _b.round());
+    setSampleRate(hz: _sampleRate);
+    _loadPreset(_presets.first);
     _timer = Timer.periodic(const Duration(milliseconds: 33), (_) {
       if (_audioOn) {
         // Follow the audio clock so the picture matches what you hear.
@@ -73,8 +81,10 @@ class _ViewerPageState extends State<ViewerPage> {
   void dispose() {
     stopAudio();
     _timer?.cancel();
+    _code.dispose();
     super.dispose();
   }
+
 
   void _toggleAudio() {
     if (_audioOn) {
