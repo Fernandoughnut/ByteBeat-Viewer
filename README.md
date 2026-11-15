@@ -1,42 +1,86 @@
-Bytebeat Viewer (Rust + Flutter example)
-Rust generates bytebeat samples; Flutter draws them as a scrolling waveform
-with a formula dropdown and two sliders (`a`, `b`).
-I couldn't compile or run this where I wrote it, so treat it as untested.
-Expect to fix small things on first build.
-Setup
-The Rust/Flutter glue (cargokit, `rust\_builder`, codegen config) is easiest to
-get from the official template, so start from that and drop in my files.
-```bash
-# one-time tools
-cargo install flutter\_rust\_bridge\_codegen
-flutter doctor            # make sure Flutter is set up
+# Bytebeat Viewer (Rust + Flutter example)
 
-# generate the project skeleton (name must match the imports in main.dart)
-flutter\_rust\_bridge\_codegen create bytebeat\_app
-cd bytebeat\_app
+Type your own bytebeat or floatbeat code and hear and see it live. Rust compiles
+and runs the code; Flutter draws the waveform and the controls.
+
+The Rust side is tested (the parser against known bytebeats, error messages, live
+code swapping). The Flutter side hasn't been compiled by me, so expect to fix
+small things on first build.
+
+## Setup
+
+```bash
+cargo install flutter_rust_bridge_codegen
+flutter_rust_bridge_codegen create bytebeat_app
+cd bytebeat_app
 ```
-Then overwrite/add these files from this folder:
-File	Action
-`rust/src/api/bytebeat.rs`	add
-`rust/src/api/mod.rs`	replace (just `pub mod bytebeat;`)
-`rust/src/api/simple.rs`	delete
-`lib/main.dart`	replace
+
+Then overwrite/add these files:
+
+| File | Action |
+|------|--------|
+| `rust/src/api/bytebeat.rs` | add / replace |
+| `rust/src/api/mod.rs` | replace (just `pub mod bytebeat;`) |
+| `rust/src/api/simple.rs` | delete |
+| `lib/main.dart` | replace |
+
+Add the audio library once:
+
+```bash
+cd rust
+cargo add rodio@0.20 --no-default-features
+cd ..
+```
+
 Regenerate bindings and run:
+
 ```bash
-flutter\_rust\_bridge\_codegen generate
-flutter run -d linux      # or macos / windows / an Android device
+flutter_rust_bridge_codegen generate
+flutter run -d windows
 ```
-For live regeneration while you edit Rust:
-```bash
-flutter\_rust\_bridge\_codegen generate --watch
-```
-Where to tinker
-Add a formula: add a name to `formula\_names()` and a match arm in
-`sample()` in `rust/src/api/bytebeat.rs`. Re-run `generate`.
-Change the window: `windowSize` and `scrollStep` in `main.dart`.
-Change what the sliders do: `a` and `b` are passed straight into the
-formulas as shift amounts or multipliers.
-Ideas for next steps
-Play the samples as audio (e.g. the `rodio` or `cpal` crate on the Rust side)
-Make `render\_bytebeat` async or stream samples with `StreamSink`
-Parse a typed expression in Rust instead of hardcoded formulas
+
+## Using it
+
+- Type in the **Code** box. It compiles on every keystroke; if there's a
+  mistake you get a message and the last good code keeps playing.
+- **Load preset…** fills the box with an example to start from.
+- Speaker icon: sound on/off. Circular arrow: back to t = 0.
+- **Hz menu**: sample rate (also available in your code as `sr`).
+- **Float switch**: off = bytebeat (result wrapped to 0..255),
+  on = floatbeat (result is -1..1, anything outside is clipped).
+- Sliders `a` and `b` (0 to 24) are available in your code as `a` and `b`.
+
+## Code syntax
+
+JavaScript rules, so most Dollchan-style one-liners work.
+
+| What | Supported |
+|------|-----------|
+| Variables | `t` (time), `a`, `b` (sliders), `sr` (sample rate) |
+| Constants | `PI`, `E` |
+| Operators | `+ - * / % **` `& \| ^ ~ << >> >>>` `< <= > >= == != === !==` `&& \|\| !` `? :` |
+| Functions | `sin cos tan asin acos atan atan2 abs floor ceil round trunc int sign sqrt log log2 exp pow min max random` (a leading `Math.` is fine) |
+| Numbers | `12`, `0.5`, `.5`, `1e3`, `0xFF` |
+
+Bitwise operators convert to 32-bit integers exactly like JavaScript.
+
+**Not supported:** assignments (`x=...`), the comma operator, `;`, arrays,
+functions and loops. Code that needs those has to be rewritten as one
+expression.
+
+## Where to tinker
+
+- **Presets**: edit `presets()` in `rust/src/api/bytebeat.rs`. Restart the app
+  to see changes (no need to run `generate` unless you change a function's
+  inputs or outputs).
+- **New functions or operators**: the parser and evaluator are at the bottom of
+  `bytebeat.rs` (after the `ENGINE-START` comment). To add a function, add a
+  variant to `Func`, a line in `lookup_func`, and a case in `Expr::eval`.
+- **Sound volume**: `sink.set_volume(0.3)` in `spawn_audio`.
+- **Picture size and speed**: `windowSize` and `scrollStep` in `main.dart`.
+
+## Ideas for next steps
+
+- Support `x=...` assignments and the comma operator
+- Draw a spectrum next to the waveform
+- Save and load your own code snippets to a file
