@@ -1,21 +1,24 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use flutter_rust_bridge::frb;
 use rodio::{OutputStream, Sink, Source};
 
-/// Classic bytebeat rate. Try 11025, 22050 or 44100 for a higher pitch.
-const SAMPLE_RATE: u32 = 8000;
 
-// Shared state between the Flutter UI thread and the audio thread.
-static FORMULA: AtomicU32 = AtomicU32::new(0);
+const DEFAULT_CODE: &str = "t*(((t>>12)|(t>>8))&63&(t>>a))";
+
+static PROGRAM: RwLock<Option<Arc<Program>>> = RwLock::new(None);
+static PROGRAM_VERSION: AtomicU32 = AtomicU32::new(0); 
 static PARAM_A: AtomicU32 = AtomicU32::new(8);
 static PARAM_B: AtomicU32 = AtomicU32::new(12);
-static POSITION: AtomicU32 = AtomicU32::new(0); // current t
+static SAMPLE_RATE: AtomicU32 = AtomicU32::new(8000);
+static FLOAT_MODE: AtomicBool = AtomicBool::new(false);
+static POSITION: AtomicU32 = AtomicU32::new(0);
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static AUDIO_THREAD: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+
 
 /// Render `len` bytebeat samples starting at time `start`.
 /// `formula` picks the expression; `a` and `b` are tweakable parameters.
