@@ -23,34 +23,28 @@ static AUDIO_THREAD: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 /// Render `len` bytebeat samples starting at time `start`.
 /// `formula` picks the expression; `a` and `b` are tweakable parameters.
 /// Runs synchronously: it is fast enough for a few thousand samples per call.
-#[frb(sync)]
-pub fn render_bytebeat(formula: u32, start: u32, len: u32, a: u32, b: u32) -> Vec<u8> {
-    (start..start.wrapping_add(len))
-        .map(|t| sample(formula, t, a, b))
-        .collect()
+fn current_program() -> Arc<Program> {
+    if let Some(p) = PROGRAM.read().unwrap().as_ref() {
+        return p.clone();
+    }
+    let p = Arc::new(Program::compile(DEFAULT_CODE).expect("default code is valid"));
+    let mut w = PROGRAM.write().unwrap();
+    w.get_or_insert(p).clone()
 }
 
-/// Names shown in the Flutter dropdown. Add a formula here and in `sample`.
-#[frb(sync)]
-pub fn formula_names() -> Vec<String> {
-    vec![
-        "Classic melody".to_string(),
-        "Sierpinski-ish".to_string(),
-        "Shift mix".to_string(),
-        "Saw stack".to_string(),
-    ]
-}
-
-fn sample(formula: u32, t: u32, a: u32, b: u32) -> u8 {
-    // wrapping_* avoids overflow panics in debug builds.
-    let v: u32 = match formula {
-        0 => t.wrapping_mul(((t >> 12) | (t >> 8)) & 63 & t.wrapping_shr(a)),
-        1 => (t & t.wrapping_shr(a)) | t.wrapping_shr(b),
-        2 => (t.wrapping_shr(a) | t).wrapping_mul(b.max(1)),
-        3 => t.wrapping_mul(a.max(1)) & t.wrapping_shr(b),
-        _ => 0,
-    };
-    (v & 0xFF) as u8
+/// Run the program for one sample and turn the result into -1.0..=1.0.
+fn sample_f32(program: &Program, t: u32) -> f32 {
+    let v = program.run(
+        t,
+        PARAM_A.load(Ordering::Relaxed),
+        PARAM_B.load(Ordering::Relaxed),
+        SAMPLE_RATE.load(Ordering::Relaxed),
+    );
+    if FLOAT_MODE.load(Ordering::Relaxed) {
+        to_float(v)
+    } else {
+        to_byte(v) as f32 / 127.5 - 1.0
+    }
 }
 
 // ---------------------------------------------------------------------------
